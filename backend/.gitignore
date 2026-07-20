@@ -19,3 +19,7 @@ Thumbs.db
 # Local environment configuration overrides
 .env
 .env.local
+
+# H2 Database files
+data/
+
