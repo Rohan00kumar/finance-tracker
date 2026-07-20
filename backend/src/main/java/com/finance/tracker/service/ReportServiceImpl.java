@@ -6,7 +6,6 @@ import com.finance.tracker.model.User;
 import com.finance.tracker.repository.TransactionRepository;
 import com.lowagie.text.*;
 import com.lowagie.text.Font;
-import com.lowagie.text.Image;
 import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
