@@ -1,6 +1,6 @@
 package com.finance.tracker.service;
 
-import com.finance.tracker.model.User;
+import com.finance.tracker.entity.User;
 import java.time.LocalDate;
 
 public interface ReportService {

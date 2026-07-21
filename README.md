@@ -11,23 +11,26 @@ A full-stack Personal Finance Tracker application with a **Spring Boot** backend
 ## Project Structure
 - `backend/` - Spring Boot backend
 - `frontend/` - React frontend
-- `docker-compose.yml` - Docker compose file for PostgreSQL and pgAdmin
 
 ## How to Run
 
 ### Database
-1. Run `docker-compose up -d` in the root directory to spin up PostgreSQL and pgAdmin.
-2. PostgreSQL will run on port `5432` (database `financetracker`, user `postgres`, password `postgrespassword`).
-3. pgAdmin will run on port `5050` (credentials: `admin@finance.com` / `adminpassword`).
+The application is configured to use an in-memory **H2 database** for zero-setup execution. You do not need to install or run any local database servers (like MySQL or PostgreSQL). The database will automatically initialize when you start the backend.
 
-### Backend
-1. Navigate to the `backend/` directory: `cd backend`
-2. Build the project using Maven: `mvn clean install`
-3. Run the application: `mvn spring-boot:run`
-4. The backend API will be available at `http://localhost:8080`.
 
-### Frontend
-1. Navigate to the `frontend/` directory: `cd frontend`
-2. Install dependencies: `npm install`
-3. Run the development server: `npm run dev`
-4. The frontend will be available at `http://localhost:5173`.
+### Unified Run (Single Port 8081)
+You can run the entire application (both frontend and backend) on a single port (`8081`) with a single command:
+
+#### Option A: On Windows (Batch script)
+Simply double-click the `run.bat` file in the project root, or run it in your terminal:
+```cmd
+run.bat
+```
+
+#### Option B: Via npm (Cross-platform)
+Run the following in the root folder:
+```bash
+npm run build-and-run
+```
+
+This command will automatically build the React frontend, place it inside the Spring Boot static resources, and start the backend. Your app will be fully available at **`http://localhost:8081`**.

@@ -2,13 +2,12 @@ package com.finance.tracker.service;
 
 import com.finance.tracker.dto.BudgetRequest;
 import com.finance.tracker.dto.BudgetResponse;
+import com.finance.tracker.entity.Budget;
+import com.finance.tracker.entity.Expense;
+import com.finance.tracker.entity.User;
 import com.finance.tracker.exception.ResourceNotFoundException;
-import com.finance.tracker.model.Budget;
-import com.finance.tracker.model.Transaction;
-import com.finance.tracker.model.TransactionType;
-import com.finance.tracker.model.User;
 import com.finance.tracker.repository.BudgetRepository;
-import com.finance.tracker.repository.TransactionRepository;
+import com.finance.tracker.repository.ExpenseRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,30 +24,27 @@ import java.util.stream.Collectors;
 public class BudgetServiceImpl implements BudgetService {
 
     private final BudgetRepository budgetRepository;
-    private final TransactionRepository transactionRepository;
+    private final ExpenseRepository expenseRepository;
 
-    public BudgetServiceImpl(BudgetRepository budgetRepository, TransactionRepository transactionRepository) {
+    public BudgetServiceImpl(BudgetRepository budgetRepository, ExpenseRepository expenseRepository) {
         this.budgetRepository = budgetRepository;
-        this.transactionRepository = transactionRepository;
+        this.expenseRepository = expenseRepository;
     }
 
     @Override
     public List<BudgetResponse> getAllBudgets(User user, String monthYear) {
-        // Find all budgets for user in this month
         List<Budget> budgets = budgetRepository.findByUserAndMonthYear(user, monthYear);
 
-        // Fetch all transactions in this month to calculate spent amount per category
         YearMonth ym = YearMonth.parse(monthYear);
         LocalDate start = ym.atDay(1);
         LocalDate end = ym.atEndOfMonth();
 
-        List<Transaction> transactions = transactionRepository.findByUserAndDateBetweenOrderByDateDesc(user, start, end);
+        List<Expense> expenses = expenseRepository.findByUserAndDateBetweenOrderByDateDesc(user, start, end);
 
-        Map<String, BigDecimal> spentMap = transactions.stream()
-                .filter(t -> t.getType() == TransactionType.EXPENSE)
+        Map<String, BigDecimal> spentMap = expenses.stream()
                 .collect(Collectors.groupingBy(
-                        t -> t.getCategory().toLowerCase(),
-                        Collectors.reducing(BigDecimal.ZERO, Transaction::getAmount, BigDecimal::add)
+                        e -> e.getCategory().toLowerCase(),
+                        Collectors.reducing(BigDecimal.ZERO, Expense::getAmount, BigDecimal::add)
                 ));
 
         return budgets.stream()
@@ -86,12 +82,11 @@ public class BudgetServiceImpl implements BudgetService {
 
         Budget saved = budgetRepository.save(budget);
 
-        // Compute spent amount for this single budget to return response
         YearMonth ym = YearMonth.parse(request.getMonthYear());
-        List<Transaction> transactions = transactionRepository.findByUserAndDateBetweenOrderByDateDesc(user, ym.atDay(1), ym.atEndOfMonth());
-        BigDecimal spent = transactions.stream()
-                .filter(t -> t.getType() == TransactionType.EXPENSE && t.getCategory().equalsIgnoreCase(request.getCategory()))
-                .map(Transaction::getAmount)
+        List<Expense> expenses = expenseRepository.findByUserAndDateBetweenOrderByDateDesc(user, ym.atDay(1), ym.atEndOfMonth());
+        BigDecimal spent = expenses.stream()
+                .filter(e -> e.getCategory().equalsIgnoreCase(request.getCategory()))
+                .map(Expense::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         return new BudgetResponse(

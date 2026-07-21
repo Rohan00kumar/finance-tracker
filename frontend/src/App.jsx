@@ -1,16 +1,15 @@
 import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
-import Login from './pages/Login';
-import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Transactions from './pages/Transactions';
 import Budgets from './pages/Budgets';
+import SavingsGoals from './pages/SavingsGoals';
+import Profile from './pages/Profile';
 
 const MainAppContent = () => {
   const { user, loading } = useAuth();
   const [activePage, setActivePage] = useState('dashboard');
-  const [isRegistering, setIsRegistering] = useState(false);
 
   if (loading) {
     return (
@@ -19,14 +18,6 @@ const MainAppContent = () => {
         <p style={{ marginTop: '1rem', color: 'var(--text-secondary)' }}>Loading Session...</p>
       </div>
     );
-  }
-
-  // Auth Screen Routing
-  if (!user) {
-    if (isRegistering) {
-      return <Register onNavigateToLogin={() => setIsRegistering(false)} />;
-    }
-    return <Login onNavigateToRegister={() => setIsRegistering(true)} />;
   }
 
   // Dashboard / Operations Routing
@@ -38,6 +29,8 @@ const MainAppContent = () => {
         {activePage === 'dashboard' && <Dashboard />}
         {activePage === 'transactions' && <Transactions />}
         {activePage === 'budgets' && <Budgets />}
+        {activePage === 'savings' && <SavingsGoals />}
+        {activePage === 'profile' && <Profile />}
       </main>
     </div>
   );

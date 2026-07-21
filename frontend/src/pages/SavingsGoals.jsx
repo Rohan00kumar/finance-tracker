@@ -4,53 +4,66 @@ import {
   Plus, 
   Trash2, 
   X, 
-  AlertTriangle, 
+  Target, 
+  DollarSign, 
   Calendar, 
   CheckCircle,
   TrendingUp,
-  DollarSign
+  Edit2
 } from 'lucide-react';
 
-const CATEGORIES = [
-  'Food & Dining', 'Rent & Housing', 'Utilities', 
-  'Transportation', 'Entertainment', 'Shopping', 'Healthcare', 'Other'
-];
-
-const Budgets = () => {
-  const [budgets, setBudgets] = useState([]);
+const SavingsGoals = () => {
+  const [goals, setGoals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [selectedMonth, setSelectedMonth] = useState(
-    new Date().toISOString().substring(0, 7) // YYYY-MM
-  );
-
+  
   // Modal / Form state
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [category, setCategory] = useState(CATEGORIES[0]);
-  const [limitAmount, setLimitAmount] = useState('');
+  const [formMode, setFormMode] = useState('ADD'); // ADD or EDIT
+  const [editingId, setEditingId] = useState(null);
+  
+  const [title, setTitle] = useState('');
+  const [targetAmount, setTargetAmount] = useState('');
+  const [currentAmount, setCurrentAmount] = useState('');
+  const [targetDate, setTargetDate] = useState('');
   const [formError, setFormError] = useState('');
   const [formLoading, setFormLoading] = useState(false);
 
-  const fetchBudgets = async () => {
+  const fetchGoals = async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/budgets?monthYear=${selectedMonth}`);
-      setBudgets(res.data);
+      const res = await api.get('/savings');
+      setGoals(res.data);
     } catch (err) {
       console.error(err);
-      setError('Failed to load budgets');
+      setError('Failed to load savings goals');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchBudgets();
-  }, [selectedMonth]);
+    fetchGoals();
+  }, []);
 
-  const openModal = () => {
-    setCategory(CATEGORIES[0]);
-    setLimitAmount('');
+  const openAddModal = () => {
+    setFormMode('ADD');
+    setEditingId(null);
+    setTitle('');
+    setTargetAmount('');
+    setCurrentAmount('0');
+    setTargetDate('');
+    setFormError('');
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (goal) => {
+    setFormMode('EDIT');
+    setEditingId(goal.id);
+    setTitle(goal.title);
+    setTargetAmount(goal.targetAmount.toString());
+    setCurrentAmount(goal.currentAmount.toString());
+    setTargetDate(goal.targetDate);
     setFormError('');
     setIsModalOpen(true);
   };
@@ -59,38 +72,48 @@ const Budgets = () => {
     e.preventDefault();
     setFormError('');
 
-    if (!limitAmount || parseFloat(limitAmount) <= 0) {
-      setFormError('Please enter a valid limit amount');
+    if (!title || !targetAmount || !targetDate) {
+      setFormError('Title, target amount, and target date are required');
+      return;
+    }
+
+    if (parseFloat(targetAmount) <= 0) {
+      setFormError('Target amount must be greater than zero');
       return;
     }
 
     setFormLoading(true);
     try {
       const payload = {
-        category,
-        limitAmount: parseFloat(limitAmount),
-        monthYear: selectedMonth
+        title,
+        targetAmount: parseFloat(targetAmount),
+        currentAmount: parseFloat(currentAmount || 0),
+        targetDate
       };
       
-      await api.post('/budgets', payload);
-      fetchBudgets();
+      if (formMode === 'ADD') {
+        await api.post('/savings', payload);
+      } else {
+        await api.put(`/savings/${editingId}`, payload);
+      }
+      fetchGoals();
       setIsModalOpen(false);
     } catch (err) {
       console.error(err);
-      setFormError('Failed to save budget limit');
+      setFormError('Failed to save savings goal');
     } finally {
       setFormLoading(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this budget limit?')) return;
+    if (!window.confirm('Are you sure you want to delete this savings goal?')) return;
     try {
-      await api.delete(`/budgets/${id}`);
-      fetchBudgets();
+      await api.delete(`/savings/${id}`);
+      fetchGoals();
     } catch (err) {
       console.error(err);
-      alert('Failed to delete budget limit');
+      alert('Failed to delete savings goal');
     }
   };
 
@@ -98,108 +121,103 @@ const Budgets = () => {
     return (
       <div style={styles.loaderContainer}>
         <div style={styles.spinner}></div>
-        <p style={{ marginTop: '1rem', color: 'var(--text-secondary)' }}>Loading Budgets...</p>
+        <p style={{ marginTop: '1rem', color: 'var(--text-secondary)' }}>Loading Goals...</p>
       </div>
     );
   }
 
   return (
     <div style={styles.container}>
-      {/* Top Header */}
       <header style={styles.header}>
         <div>
-          <h1 style={styles.title}>Monthly Budgets</h1>
-          <p style={styles.subtitle}>Set targets and track expenses per category limits</p>
+          <h1 style={styles.title}>Savings Goals</h1>
+          <p style={styles.subtitle}>Set milestones and track your savings progress</p>
         </div>
         
-        <div style={styles.actions}>
-          <div style={styles.filterContainer}>
-            <Calendar size={16} color="var(--text-secondary)" />
-            <input
-              type="month"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              style={styles.monthInput}
-            />
-          </div>
-          
-          <button className="btn btn-primary" onClick={openModal}>
-            <Plus size={18} />
-            Set Budget Limit
-          </button>
-        </div>
+        <button className="btn btn-primary" onClick={openAddModal}>
+          <Plus size={18} />
+          Create Savings Goal
+        </button>
       </header>
 
       {error && <div style={styles.error}>{error}</div>}
 
-      {/* Budgets Grid */}
-      {budgets.length === 0 ? (
+      {goals.length === 0 ? (
         <div className="glass-card" style={styles.emptyCard}>
           <div style={styles.emptyIcon}>🎯</div>
-          <h3>No Budgets Set</h3>
-          <p style={styles.emptyText}>You haven't set any category budgets for this month. Set one to start tracking your expenses!</p>
-          <button className="btn btn-primary" onClick={openModal} style={{ marginTop: '1rem' }}>
-            Create First Budget
+          <h3>No Savings Goals Active</h3>
+          <p style={styles.emptyText}>Start putting money aside for a dream vacation, new gadget, or emergency fund!</p>
+          <button className="btn btn-primary" onClick={openAddModal} style={{ marginTop: '1rem' }}>
+            Create First Goal
           </button>
         </div>
       ) : (
         <div style={styles.grid}>
-          {budgets.map(b => {
-            const isOver = b.spentAmount > b.limitAmount;
-            const percent = Math.round((b.spentAmount / b.limitAmount) * 100);
-            const remaining = b.limitAmount - b.spentAmount;
+          {goals.map(g => {
+            const isCompleted = g.currentAmount >= g.targetAmount;
+            const percent = Math.round((g.currentAmount / g.targetAmount) * 100);
+            const remaining = Math.max(0, g.targetAmount - g.currentAmount);
 
             return (
-              <div key={b.id} className="glass-card" style={styles.budgetCard}>
+              <div key={g.id} className="glass-card" style={styles.goalCard}>
                 <div style={styles.cardHeader}>
-                  <h3 style={styles.cardTitle}>{b.category}</h3>
-                  <button className="btn-icon" onClick={() => handleDelete(b.id)} style={{ color: 'var(--danger)', padding: 4 }}>
-                    <Trash2 size={16} />
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Target size={18} color="var(--primary)" />
+                    <h3 style={styles.cardTitle}>{g.title}</h3>
+                  </div>
+                  <div style={styles.actions}>
+                    <button className="btn-icon" onClick={() => openEditModal(g)} style={{ padding: 4 }}>
+                      <Edit2 size={16} />
+                    </button>
+                    <button className="btn-icon" onClick={() => handleDelete(g.id)} style={{ color: 'var(--danger)', padding: 4 }}>
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
 
                 <div style={styles.metricsContainer}>
                   <div style={styles.metric}>
-                    <span style={styles.metricLabel}>Spent</span>
-                    <span style={{ ...styles.metricValue, color: isOver ? 'var(--danger)' : '#fff' }}>
-                      ₹{b.spentAmount.toFixed(2)}
+                    <span style={styles.metricLabel}>Saved</span>
+                    <span style={{ ...styles.metricValue, color: 'var(--success)' }}>
+                      ₹{g.currentAmount.toFixed(2)}
                     </span>
                   </div>
                   <div style={styles.metricDivider}></div>
                   <div style={styles.metric}>
-                    <span style={styles.metricLabel}>Limit</span>
-                    <span style={styles.metricValue}>₹{b.limitAmount.toFixed(2)}</span>
+                    <span style={styles.metricLabel}>Target</span>
+                    <span style={styles.metricValue}>₹{g.targetAmount.toFixed(2)}</span>
                   </div>
                 </div>
 
-                {/* Progress bar container */}
                 <div style={styles.progressBarContainer}>
                   <div style={styles.progressBarBg}>
                     <div style={{ 
                       ...styles.progressBarFill, 
                       width: `${Math.min(percent, 100)}%`,
-                      background: isOver ? 'var(--danger-gradient)' : 'var(--primary-gradient)'
+                      background: isCompleted ? 'var(--success-gradient)' : 'var(--primary-gradient)'
                     }}></div>
                   </div>
-                  <div style={styles.progressPercent}>{percent}% used</div>
+                  <div style={styles.progressText}>
+                    <span>Target Date: {g.targetDate}</span>
+                    <span>{percent}%</span>
+                  </div>
                 </div>
 
-                {/* Status footer */}
                 <div style={{
                   ...styles.cardFooter,
-                  background: isOver ? 'rgba(239, 68, 68, 0.05)' : 'rgba(16, 185, 129, 0.05)',
-                  borderColor: isOver ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
-                  color: isOver ? '#FCA5A5' : '#A7F3D0'
+                  background: isCompleted ? 'rgba(16, 185, 129, 0.05)' : 'rgba(99, 102, 241, 0.05)',
+                  borderColor: isCompleted ? 'rgba(16, 185, 129, 0.15)' : 'rgba(99, 102, 241, 0.15)',
+                  color: isCompleted ? '#A7F3D0' : '#C7D2FE'
                 }}>
-                  {isOver ? (
+                  {isCompleted ? (
                     <>
-                      <AlertTriangle size={15} />
-                      <span>Over budget by ₹{Math.abs(remaining).toFixed(2)}!</span>
+                      <CheckCircle size={15} />
+                      <span>Completed! Goal achieved.</span>
                     </>
                   ) : (
                     <>
-                      <CheckCircle size={15} />
-                      <span>₹{remaining.toFixed(2)} remaining</span>
+                      <TrendingUp size={15} />
+                      <span>Need ₹{remaining.toFixed(2)} more</span>
                     </>
                   )}
                 </div>
@@ -209,12 +227,11 @@ const Budgets = () => {
         </div>
       )}
 
-      {/* Create/Update Budget Modal */}
       {isModalOpen && (
         <div className="modal-overlay">
           <div className="modal-content">
             <div style={styles.modalHeader}>
-              <h3>Configure Budget</h3>
+              <h3>{formMode === 'ADD' ? 'Configure Savings Goal' : 'Edit Savings Goal'}</h3>
               <button className="btn-icon" onClick={() => setIsModalOpen(false)}>
                 <X size={20} />
               </button>
@@ -224,30 +241,60 @@ const Budgets = () => {
 
             <form onSubmit={handleFormSubmit}>
               <div className="form-group">
-                <label className="form-label">Category</label>
-                <select
+                <label className="form-label">Goal Title</label>
+                <input
+                  type="text"
                   className="form-input"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                >
-                  {CATEGORIES.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
+                  placeholder="e.g. Dream Vacation"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                />
+              </div>
+
+              <div style={styles.formGrid}>
+                <div className="form-group">
+                  <label className="form-label">Target Amount (₹)</label>
+                  <div style={styles.inputPrefixContainer}>
+                    <span style={{ position: 'absolute', left: '1rem', color: 'var(--text-muted)' }}>₹</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="form-input"
+                      style={styles.inputWithPrefix}
+                      placeholder="e.g. 5000.00"
+                      value={targetAmount}
+                      onChange={(e) => setTargetAmount(e.target.value)}
+                    />
+                  </div>
+                </div>
+                
+                <div className="form-group">
+                  <label className="form-label">Current Saved (₹)</label>
+                  <div style={styles.inputPrefixContainer}>
+                    <span style={{ position: 'absolute', left: '1rem', color: 'var(--text-muted)' }}>₹</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="form-input"
+                      style={styles.inputWithPrefix}
+                      placeholder="e.g. 500.00"
+                      value={currentAmount}
+                      onChange={(e) => setCurrentAmount(e.target.value)}
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="form-group" style={{ marginBottom: '1.75rem' }}>
-                <label className="form-label">Monthly Limit Amount (₹)</label>
+                <label className="form-label">Target Date</label>
                 <div style={styles.inputPrefixContainer}>
-                  <span style={{ position: 'absolute', left: '1rem', color: 'var(--text-muted)' }}>₹</span>
+                  <Calendar size={18} style={styles.inputPrefixIcon} />
                   <input
-                    type="number"
-                    step="0.01"
+                    type="date"
                     className="form-input"
                     style={styles.inputWithPrefix}
-                    placeholder="e.g. 500.00"
-                    value={limitAmount}
-                    onChange={(e) => setLimitAmount(e.target.value)}
+                    value={targetDate}
+                    onChange={(e) => setTargetDate(e.target.value)}
                   />
                 </div>
               </div>
@@ -262,7 +309,7 @@ const Budgets = () => {
                   Cancel
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={formLoading}>
-                  {formLoading ? 'Saving...' : 'Set Budget Limit'}
+                  {formLoading ? 'Saving...' : 'Save Savings Goal'}
                 </button>
               </div>
             </form>
@@ -299,39 +346,16 @@ const styles = {
     color: 'var(--text-secondary)',
     fontSize: '0.95rem',
   },
-  actions: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '1rem',
-  },
-  filterContainer: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.5rem',
-    background: 'rgba(255, 255, 255, 0.03)',
-    border: '1px solid var(--border-color)',
-    borderRadius: '12px',
-    padding: '0.5rem 1rem',
-  },
-  monthInput: {
-    border: 'none',
-    background: 'transparent',
-    color: 'var(--text-primary)',
-    fontFamily: 'var(--font-sans)',
-    fontSize: '0.9rem',
-    outline: 'none',
-    cursor: 'pointer',
-  },
   grid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
     gap: '1.5rem',
   },
-  budgetCard: {
+  goalCard: {
     display: 'flex',
     flexDirection: 'column',
     justifyContent: 'space-between',
-    minHeight: '220px',
+    minHeight: '230px',
     padding: '1.25rem',
   },
   cardHeader: {
@@ -343,7 +367,10 @@ const styles = {
   cardTitle: {
     fontSize: '1.1rem',
     fontWeight: 700,
-    textTransform: 'capitalize',
+  },
+  actions: {
+    display: 'flex',
+    gap: '0.5rem',
   },
   metricsContainer: {
     display: 'flex',
@@ -381,16 +408,17 @@ const styles = {
     background: 'rgba(255, 255, 255, 0.05)',
     borderRadius: '3px',
     overflow: 'hidden',
-    marginBottom: '0.35rem',
+    marginBottom: '0.5rem',
   },
   progressBarFill: {
     height: '100%',
     borderRadius: '3px',
     transition: 'width 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
   },
-  progressPercent: {
+  progressText: {
+    display: 'flex',
+    justifyContent: 'space-between',
     fontSize: '0.75rem',
-    textAlign: 'right',
     color: 'var(--text-secondary)',
     fontWeight: 500,
   },
@@ -430,6 +458,11 @@ const styles = {
     marginBottom: '1.5rem',
     borderBottom: '1px solid var(--border-color)',
     paddingBottom: '0.75rem',
+  },
+  formGrid: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '1rem',
   },
   inputPrefixContainer: {
     position: 'relative',
@@ -486,4 +519,4 @@ const styles = {
   },
 };
 
-export default Budgets;
+export default SavingsGoals;

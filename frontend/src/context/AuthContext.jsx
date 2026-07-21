@@ -1,55 +1,21 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import api from '../services/api';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState({ name: 'Guest User', username: 'Guest User', email: 'guest@example.com' });
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (e) {
-        localStorage.removeItem('user');
-      }
-    }
-    setLoading(false);
-  }, []);
-
-  const login = async (username, password) => {
-    try {
-      const response = await api.post('/auth/login', { username, password });
-      if (response.data && response.data.token) {
-        localStorage.setItem('user', JSON.stringify(response.data));
-        setUser(response.data);
-        return { success: true };
-      }
-    } catch (error) {
-      return {
-        success: false,
-        error: error.response?.data?.message || 'Invalid username or password',
-      };
-    }
+  const login = async (email, password) => {
+    return { success: true };
   };
 
-  const register = async (username, email, password) => {
-    try {
-      const response = await api.post('/auth/signup', { username, email, password });
-      return { success: true, message: response.data.message };
-    } catch (error) {
-      return {
-        success: false,
-        error: error.response?.data?.message || 'Registration failed. Try again.',
-      };
-    }
+  const register = async (name, email, password) => {
+    return { success: true, message: 'Registration successful!' };
   };
 
   const logout = () => {
-    localStorage.removeItem('user');
-    setUser(null);
+    // No-op since we run in single user mode
   };
 
   return (

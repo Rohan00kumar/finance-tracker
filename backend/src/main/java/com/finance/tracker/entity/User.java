@@ -1,4 +1,4 @@
-package com.finance.tracker.model;
+package com.finance.tracker.entity;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
@@ -8,7 +8,6 @@ import jakarta.validation.constraints.Size;
 @Entity
 @Table(name = "users", 
        uniqueConstraints = { 
-         @UniqueConstraint(columnNames = "username"),
          @UniqueConstraint(columnNames = "email") 
        })
 public class User {
@@ -17,11 +16,11 @@ public class User {
     private Long id;
 
     @NotBlank
-    @Size(max = 20)
-    private String username;
+    @Size(max = 100)
+    private String name;
 
     @NotBlank
-    @Size(max = 50)
+    @Size(max = 100)
     @Email
     private String email;
 
@@ -32,8 +31,8 @@ public class User {
     public User() {
     }
 
-    public User(String username, String email, String password) {
-        this.username = username;
+    public User(String name, String email, String password) {
+        this.name = name;
         this.email = email;
         this.password = password;
     }
@@ -46,12 +45,12 @@ public class User {
         this.id = id;
     }
 
-    public String getUsername() {
-        return username;
+    public String getName() {
+        return name;
     }
 
-    public void setUsername(String username) {
-        this.username = username;
+    public void setName(String name) {
+        this.name = name;
     }
 
     public String getEmail() {

@@ -1,9 +1,12 @@
 package com.finance.tracker.service;
 
-import com.finance.tracker.model.Transaction;
-import com.finance.tracker.model.TransactionType;
-import com.finance.tracker.model.User;
-import com.finance.tracker.repository.TransactionRepository;
+import com.finance.tracker.dto.TransactionResponse;
+import com.finance.tracker.dto.TransactionType;
+import com.finance.tracker.entity.Income;
+import com.finance.tracker.entity.Expense;
+import com.finance.tracker.entity.User;
+import com.finance.tracker.repository.IncomeRepository;
+import com.finance.tracker.repository.ExpenseRepository;
 import com.lowagie.text.*;
 import com.lowagie.text.Font;
 import com.lowagie.text.pdf.PdfPCell;
@@ -18,24 +21,44 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.ArrayList;
 
 @Service
 public class ReportServiceImpl implements ReportService {
 
-    private final TransactionRepository transactionRepository;
+    private final IncomeRepository incomeRepository;
+    private final ExpenseRepository expenseRepository;
 
-    public ReportServiceImpl(TransactionRepository transactionRepository) {
-        this.transactionRepository = transactionRepository;
+    public ReportServiceImpl(IncomeRepository incomeRepository, ExpenseRepository expenseRepository) {
+        this.incomeRepository = incomeRepository;
+        this.expenseRepository = expenseRepository;
+    }
+
+    private List<TransactionResponse> getCombinedTransactions(User user, LocalDate start, LocalDate end) {
+        List<Income> incomes = incomeRepository.findByUserAndDateBetweenOrderByDateDesc(user, start, end);
+        List<Expense> expenses = expenseRepository.findByUserAndDateBetweenOrderByDateDesc(user, start, end);
+
+        List<TransactionResponse> transactions = new ArrayList<>();
+        for (Income i : incomes) {
+            transactions.add(new TransactionResponse(i.getId(), i.getTitle(), i.getAmount(), TransactionType.INCOME, i.getDate(), i.getCategory()));
+        }
+        for (Expense e : expenses) {
+            transactions.add(new TransactionResponse(e.getId(), e.getTitle(), e.getAmount(), TransactionType.EXPENSE, e.getDate(), e.getCategory()));
+        }
+
+        // Sort by date desc
+        transactions.sort((t1, t2) -> t2.getDate().compareTo(t1.getDate()));
+        return transactions;
     }
 
     @Override
     public byte[] generatePdfReport(User user, LocalDate start, LocalDate end) {
-        List<Transaction> transactions = transactionRepository.findByUserAndDateBetweenOrderByDateDesc(user, start, end);
+        List<TransactionResponse> transactions = getCombinedTransactions(user, start, end);
 
         BigDecimal totalIncome = BigDecimal.ZERO;
         BigDecimal totalExpense = BigDecimal.ZERO;
 
-        for (Transaction t : transactions) {
+        for (TransactionResponse t : transactions) {
             if (t.getType() == TransactionType.INCOME) {
                 totalIncome = totalIncome.add(t.getAmount());
             } else {
@@ -67,7 +90,7 @@ public class ReportServiceImpl implements ReportService {
 
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMM dd, yyyy");
             Paragraph subtitle = new Paragraph("Period: " + start.format(formatter) + " - " + end.format(formatter) + 
-                    " | Generated for: " + user.getUsername(), subTitleFont);
+                    " | Generated for: " + user.getName(), subTitleFont);
             subtitle.setAlignment(Element.ALIGN_CENTER);
             subtitle.setSpacingAfter(20);
             document.add(subtitle);
@@ -78,7 +101,7 @@ public class ReportServiceImpl implements ReportService {
             summaryTable.setSpacingAfter(20);
 
             // Total Income Card
-            PdfPCell cell1 = new PdfPCell(new Paragraph("Total Income\n\n$" + totalIncome, boldText));
+            PdfPCell cell1 = new PdfPCell(new Paragraph("Total Income\n\nRs. " + totalIncome, boldText));
             cell1.setBackgroundColor(new Color(240, 253, 244)); // Light green
             cell1.setBorderColor(new Color(187, 247, 208));
             cell1.setPadding(10);
@@ -86,7 +109,7 @@ public class ReportServiceImpl implements ReportService {
             summaryTable.addCell(cell1);
 
             // Total Expense Card
-            PdfPCell cell2 = new PdfPCell(new Paragraph("Total Expenses\n\n$" + totalExpense, boldText));
+            PdfPCell cell2 = new PdfPCell(new Paragraph("Total Expenses\n\nRs. " + totalExpense, boldText));
             cell2.setBackgroundColor(new Color(254, 242, 242)); // Light red
             cell2.setBorderColor(new Color(254, 226, 226));
             cell2.setPadding(10);
@@ -94,7 +117,7 @@ public class ReportServiceImpl implements ReportService {
             summaryTable.addCell(cell2);
 
             // Net Savings Card
-            PdfPCell cell3 = new PdfPCell(new Paragraph("Net Savings\n\n$" + netSavings, boldText));
+            PdfPCell cell3 = new PdfPCell(new Paragraph("Net Savings\n\nRs. " + netSavings, boldText));
             cell3.setBackgroundColor(new Color(239, 246, 255)); // Light blue
             cell3.setBorderColor(new Color(219, 234, 254));
             cell3.setPadding(10);
@@ -124,7 +147,7 @@ public class ReportServiceImpl implements ReportService {
             }
 
             // Table Rows
-            for (Transaction t : transactions) {
+            for (TransactionResponse t : transactions) {
                 PdfPCell cDate = new PdfPCell(new Paragraph(t.getDate().format(formatter), normalText));
                 cDate.setPadding(5);
                 cDate.setHorizontalAlignment(Element.ALIGN_CENTER);
@@ -147,7 +170,7 @@ public class ReportServiceImpl implements ReportService {
                 Color amtColor = t.getType() == TransactionType.INCOME ? new Color(22, 163, 74) : new Color(220, 38, 38);
                 Font amtFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10, amtColor);
                 String amtPrefix = t.getType() == TransactionType.INCOME ? "+" : "-";
-                PdfPCell cAmount = new PdfPCell(new Paragraph(amtPrefix + "$" + t.getAmount(), amtFont));
+                PdfPCell cAmount = new PdfPCell(new Paragraph(amtPrefix + "Rs. " + t.getAmount(), amtFont));
                 cAmount.setPadding(5);
                 cAmount.setHorizontalAlignment(Element.ALIGN_RIGHT);
                 table.addCell(cAmount);
@@ -173,12 +196,12 @@ public class ReportServiceImpl implements ReportService {
 
     @Override
     public byte[] generateCsvReport(User user, LocalDate start, LocalDate end) {
-        List<Transaction> transactions = transactionRepository.findByUserAndDateBetweenOrderByDateDesc(user, start, end);
+        List<TransactionResponse> transactions = getCombinedTransactions(user, start, end);
 
         StringBuilder csv = new StringBuilder();
         csv.append("Date,Category,Description,Type,Amount\n");
 
-        for (Transaction t : transactions) {
+        for (TransactionResponse t : transactions) {
             csv.append(String.format("\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"\n",
                     t.getDate().toString(),
                     t.getCategory().replace("\"", "\"\""),

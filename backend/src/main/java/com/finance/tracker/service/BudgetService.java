@@ -2,8 +2,7 @@ package com.finance.tracker.service;
 
 import com.finance.tracker.dto.BudgetRequest;
 import com.finance.tracker.dto.BudgetResponse;
-import com.finance.tracker.model.User;
-
+import com.finance.tracker.entity.User;
 import java.util.List;
 
 public interface BudgetService {

@@ -133,7 +133,7 @@ const Dashboard = () => {
             </div>
           </div>
           <h2 style={{ ...styles.kpiValue, color: netBalance >= 0 ? '#fff' : 'var(--danger)' }}>
-            ${netBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            ₹{netBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </h2>
           <span style={styles.kpiFootnote}>Income minus Expenses</span>
         </div>
@@ -146,7 +146,7 @@ const Dashboard = () => {
             </div>
           </div>
           <h2 style={{ ...styles.kpiValue, color: 'var(--success)' }}>
-            +${totalIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            +₹{totalIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </h2>
           <span style={styles.kpiFootnote}>Total earnings in period</span>
         </div>
@@ -159,7 +159,7 @@ const Dashboard = () => {
             </div>
           </div>
           <h2 style={{ ...styles.kpiValue, color: 'var(--danger)' }}>
-            -${totalExpense.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            -₹{totalExpense.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </h2>
           <span style={styles.kpiFootnote}>Total spending in period</span>
         </div>
@@ -259,8 +259,8 @@ const Dashboard = () => {
                     </div>
                     
                     <div style={styles.alertAmounts}>
-                      <span>Spent: <b>${alert.spentAmount}</b></span>
-                      <span>Limit: <b>${alert.limitAmount}</b></span>
+                      <span>Spent: <b>₹{alert.spentAmount}</b></span>
+                      <span>Limit: <b>₹{alert.limitAmount}</b></span>
                       <span style={{ color: 'var(--danger)' }}>({percent}% used)</span>
                     </div>
                   </div>
@@ -290,7 +290,7 @@ const Dashboard = () => {
                     ...styles.txAmt, 
                     color: tx.type === 'INCOME' ? 'var(--success)' : 'var(--danger)' 
                   }}>
-                    {tx.type === 'INCOME' ? '+' : '-'}${tx.amount}
+                    {tx.type === 'INCOME' ? '+' : '-'}₹{tx.amount}
                   </span>
                 </div>
               ))

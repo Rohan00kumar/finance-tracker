@@ -1,7 +1,7 @@
 package com.finance.tracker.repository;
 
-import com.finance.tracker.model.Budget;
-import com.finance.tracker.model.User;
+import com.finance.tracker.entity.Budget;
+import com.finance.tracker.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 import java.util.Optional;

@@ -1,6 +1,7 @@
-package com.finance.tracker.model;
+package com.finance.tracker.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 
@@ -18,13 +19,13 @@ public class Budget {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @NotNull
+    @NotBlank
     private String category;
 
     @NotNull
     private BigDecimal limitAmount;
 
-    @NotNull
+    @NotBlank
     private String monthYear; // Format: YYYY-MM
 
     public Budget() {

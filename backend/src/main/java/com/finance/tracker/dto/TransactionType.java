@@ -1,4 +1,4 @@
-package com.finance.tracker.model;
+package com.finance.tracker.dto;
 
 public enum TransactionType {
     INCOME,

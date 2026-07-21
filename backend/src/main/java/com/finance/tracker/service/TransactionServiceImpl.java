@@ -2,94 +2,139 @@ package com.finance.tracker.service;
 
 import com.finance.tracker.dto.TransactionRequest;
 import com.finance.tracker.dto.TransactionResponse;
+import com.finance.tracker.dto.TransactionType;
+import com.finance.tracker.entity.Income;
+import com.finance.tracker.entity.Expense;
+import com.finance.tracker.entity.User;
 import com.finance.tracker.exception.ResourceNotFoundException;
-import com.finance.tracker.model.Transaction;
-import com.finance.tracker.model.User;
-import com.finance.tracker.repository.TransactionRepository;
+import com.finance.tracker.repository.IncomeRepository;
+import com.finance.tracker.repository.ExpenseRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Optional;
 
 @Service
 @Transactional
 public class TransactionServiceImpl implements TransactionService {
 
-    private final TransactionRepository transactionRepository;
+    private final IncomeRepository incomeRepository;
+    private final ExpenseRepository expenseRepository;
 
-    public TransactionServiceImpl(TransactionRepository transactionRepository) {
-        this.transactionRepository = transactionRepository;
+    public TransactionServiceImpl(IncomeRepository incomeRepository, ExpenseRepository expenseRepository) {
+        this.incomeRepository = incomeRepository;
+        this.expenseRepository = expenseRepository;
     }
 
     @Override
     public List<TransactionResponse> getAllTransactions(User user) {
-        return transactionRepository.findByUserOrderByDateDesc(user)
-                .stream()
-                .map(this::mapToResponse)
-                .collect(Collectors.toList());
+        List<Income> incomes = incomeRepository.findByUserOrderByDateDesc(user);
+        List<Expense> expenses = expenseRepository.findByUserOrderByDateDesc(user);
+
+        List<TransactionResponse> list = new ArrayList<>();
+        for (Income i : incomes) {
+            list.add(new TransactionResponse(i.getId(), i.getTitle(), i.getAmount(), TransactionType.INCOME, i.getDate(), i.getCategory()));
+        }
+        for (Expense e : expenses) {
+            list.add(new TransactionResponse(e.getId(), e.getTitle(), e.getAmount(), TransactionType.EXPENSE, e.getDate(), e.getCategory()));
+        }
+
+        list.sort((t1, t2) -> t2.getDate().compareTo(t1.getDate()));
+        return list;
     }
 
     @Override
     public TransactionResponse getTransactionById(Long id, User user) {
-        Transaction transaction = transactionRepository.findById(id)
-                .filter(t -> t.getUser().getId().equals(user.getId()))
+        Optional<Income> income = incomeRepository.findById(id)
+                .filter(i -> i.getUser().getId().equals(user.getId()));
+        if (income.isPresent()) {
+            Income i = income.get();
+            return new TransactionResponse(i.getId(), i.getTitle(), i.getAmount(), TransactionType.INCOME, i.getDate(), i.getCategory());
+        }
+
+        Expense e = expenseRepository.findById(id)
+                .filter(ex -> ex.getUser().getId().equals(user.getId()))
                 .orElseThrow(() -> new ResourceNotFoundException("Transaction not found or unauthorized"));
-        return mapToResponse(transaction);
+
+        return new TransactionResponse(e.getId(), e.getTitle(), e.getAmount(), TransactionType.EXPENSE, e.getDate(), e.getCategory());
     }
 
     @Override
     public TransactionResponse createTransaction(TransactionRequest request, User user) {
-        Transaction transaction = new Transaction(
-                user,
-                request.getDescription(),
-                request.getAmount(),
-                request.getType(),
-                request.getDate(),
-                request.getCategory()
-        );
-        Transaction saved = transactionRepository.save(transaction);
-        return mapToResponse(saved);
+        if (request.getType() == TransactionType.INCOME) {
+            Income i = new Income(request.getDescription(), request.getAmount(), request.getDate(), request.getCategory(), user);
+            Income saved = incomeRepository.save(i);
+            return new TransactionResponse(saved.getId(), saved.getTitle(), saved.getAmount(), TransactionType.INCOME, saved.getDate(), saved.getCategory());
+        } else {
+            Expense e = new Expense(request.getDescription(), request.getAmount(), request.getDate(), request.getCategory(), user);
+            Expense saved = expenseRepository.save(e);
+            return new TransactionResponse(saved.getId(), saved.getTitle(), saved.getAmount(), TransactionType.EXPENSE, saved.getDate(), saved.getCategory());
+        }
     }
 
     @Override
     public TransactionResponse updateTransaction(Long id, TransactionRequest request, User user) {
-        Transaction transaction = transactionRepository.findById(id)
-                .filter(t -> t.getUser().getId().equals(user.getId()))
-                .orElseThrow(() -> new ResourceNotFoundException("Transaction not found or unauthorized"));
+        // Try update Income first
+        Optional<Income> existingIncome = incomeRepository.findById(id)
+                .filter(i -> i.getUser().getId().equals(user.getId()));
 
-        transaction.setDescription(request.getDescription());
-        transaction.setAmount(request.getAmount());
-        transaction.setType(request.getType());
-        transaction.setDate(request.getDate());
-        transaction.setCategory(request.getCategory());
+        if (existingIncome.isPresent()) {
+            Income i = existingIncome.get();
+            if (request.getType() == TransactionType.EXPENSE) {
+                // Type changed from Income to Expense
+                incomeRepository.delete(i);
+                Expense e = new Expense(request.getDescription(), request.getAmount(), request.getDate(), request.getCategory(), user);
+                Expense saved = expenseRepository.save(e);
+                return new TransactionResponse(saved.getId(), saved.getTitle(), saved.getAmount(), TransactionType.EXPENSE, saved.getDate(), saved.getCategory());
+            } else {
+                i.setTitle(request.getDescription());
+                i.setAmount(request.getAmount());
+                i.setDate(request.getDate());
+                i.setCategory(request.getCategory());
+                Income saved = incomeRepository.save(i);
+                return new TransactionResponse(saved.getId(), saved.getTitle(), saved.getAmount(), TransactionType.INCOME, saved.getDate(), saved.getCategory());
+            }
+        }
 
-        Transaction saved = transactionRepository.save(transaction);
-        return mapToResponse(saved);
+        // Try update Expense
+        Optional<Expense> existingExpense = expenseRepository.findById(id)
+                .filter(e -> e.getUser().getId().equals(user.getId()));
+
+        if (existingExpense.isPresent()) {
+            Expense e = existingExpense.get();
+            if (request.getType() == TransactionType.INCOME) {
+                // Type changed from Expense to Income
+                expenseRepository.delete(e);
+                Income i = new Income(request.getDescription(), request.getAmount(), request.getDate(), request.getCategory(), user);
+                Income saved = incomeRepository.save(i);
+                return new TransactionResponse(saved.getId(), saved.getTitle(), saved.getAmount(), TransactionType.INCOME, saved.getDate(), saved.getCategory());
+            } else {
+                e.setTitle(request.getDescription());
+                e.setAmount(request.getAmount());
+                e.setDate(request.getDate());
+                e.setCategory(request.getCategory());
+                Expense saved = expenseRepository.save(e);
+                return new TransactionResponse(saved.getId(), saved.getTitle(), saved.getAmount(), TransactionType.EXPENSE, saved.getDate(), saved.getCategory());
+            }
+        }
+
+        throw new ResourceNotFoundException("Transaction not found or unauthorized");
     }
 
     @Override
     public void deleteTransaction(Long id, User user) {
-        Transaction transaction = transactionRepository.findById(id)
-                .filter(t -> t.getUser().getId().equals(user.getId()))
+        Optional<Income> income = incomeRepository.findById(id)
+                .filter(i -> i.getUser().getId().equals(user.getId()));
+        if (income.isPresent()) {
+            incomeRepository.delete(income.get());
+            return;
+        }
+
+        Expense e = expenseRepository.findById(id)
+                .filter(ex -> ex.getUser().getId().equals(user.getId()))
                 .orElseThrow(() -> new ResourceNotFoundException("Transaction not found or unauthorized"));
-        transactionRepository.delete(transaction);
-    }
-
-    @Override
-    public List<Transaction> getTransactionsBetweenDates(User user, LocalDate startDate, LocalDate endDate) {
-        return transactionRepository.findByUserAndDateBetweenOrderByDateDesc(user, startDate, endDate);
-    }
-
-    private TransactionResponse mapToResponse(Transaction transaction) {
-        return new TransactionResponse(
-                transaction.getId(),
-                transaction.getDescription(),
-                transaction.getAmount(),
-                transaction.getType(),
-                transaction.getDate(),
-                transaction.getCategory()
-        );
+        expenseRepository.delete(e);
     }
 }

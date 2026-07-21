@@ -1,6 +1,5 @@
 package com.finance.tracker.dto;
 
-import com.finance.tracker.model.TransactionType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;

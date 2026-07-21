@@ -108,12 +108,11 @@ const Transactions = () => {
 
     try {
       if (formMode === 'ADD') {
-        const res = await api.post('/transactions', payload);
-        setTransactions([res.data, ...transactions]);
+        await api.post('/transactions', payload);
       } else {
-        const res = await api.put(`/transactions/${editingId}`, payload);
-        setTransactions(transactions.map(t => t.id === editingId ? res.data : t));
+        await api.put(`/transactions/${editingId}`, payload);
       }
+      fetchTransactions();
       setIsModalOpen(false);
     } catch (err) {
       console.error(err);
@@ -125,7 +124,7 @@ const Transactions = () => {
     if (!window.confirm('Are you sure you want to delete this transaction?')) return;
     try {
       await api.delete(`/transactions/${id}`);
-      setTransactions(transactions.filter(t => t.id !== id));
+      fetchTransactions();
     } catch (err) {
       console.error(err);
       alert('Failed to delete transaction');
@@ -305,7 +304,7 @@ const Transactions = () => {
                       textAlign: 'right',
                       color: tx.type === 'INCOME' ? 'var(--success)' : 'var(--danger)'
                     }}>
-                      {tx.type === 'INCOME' ? '+' : '-'}${tx.amount.toFixed(2)}
+                      {tx.type === 'INCOME' ? '+' : '-'}₹{tx.amount.toFixed(2)}
                     </td>
                     <td style={{ ...styles.td, textAlign: 'center' }}>
                       <div style={styles.actionsCell}>
@@ -352,7 +351,7 @@ const Transactions = () => {
 
               <div style={styles.formGrid}>
                 <div className="form-group">
-                  <label className="form-label">Amount ($)</label>
+                  <label className="form-label">Amount (₹)</label>
                   <input
                     type="number"
                     step="0.01"

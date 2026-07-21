@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, LayoutDashboard, ReceiptText, PiggyBank, DollarSign } from 'lucide-react';
+import { LogOut, LayoutDashboard, ReceiptText, PiggyBank, DollarSign, Target, User } from 'lucide-react';
 
 const Navbar = ({ activePage, setActivePage }) => {
   const { user, logout } = useAuth();
@@ -38,14 +38,29 @@ const Navbar = ({ activePage, setActivePage }) => {
           <PiggyBank size={18} />
           Budgets
         </button>
+        <button 
+          style={{...styles.menuItem, ...(activePage === 'savings' ? styles.activeMenuItem : {})}}
+          onClick={() => setActivePage('savings')}
+        >
+          <Target size={18} />
+          Savings Goals
+        </button>
+        <button 
+          style={{...styles.menuItem, ...(activePage === 'profile' ? styles.activeMenuItem : {})}}
+          onClick={() => setActivePage('profile')}
+        >
+          <User size={18} />
+          Profile
+        </button>
       </div>
 
       <div style={styles.userSection}>
-        <span style={styles.username}>Hi, {user.username}</span>
-        <button style={styles.logoutBtn} onClick={logout}>
-          <LogOut size={16} />
-          Logout
-        </button>
+        <span 
+          style={{ ...styles.username, cursor: 'pointer', textDecoration: 'underline' }} 
+          onClick={() => setActivePage('profile')}
+        >
+          Hi, {user.username}
+        </span>
       </div>
     </nav>
   );
