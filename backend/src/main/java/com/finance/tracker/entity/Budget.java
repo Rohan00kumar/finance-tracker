@@ -28,6 +28,9 @@ public class Budget {
     @NotBlank
     private String monthYear; // Format: YYYY-MM
 
+    @Column(name = "spent_amount")
+    private BigDecimal spentAmount;
+
     public Budget() {
     }
 
@@ -36,6 +39,14 @@ public class Budget {
         this.category = category;
         this.limitAmount = limitAmount;
         this.monthYear = monthYear;
+    }
+
+    public Budget(User user, String category, BigDecimal limitAmount, String monthYear, BigDecimal spentAmount) {
+        this.user = user;
+        this.category = category;
+        this.limitAmount = limitAmount;
+        this.monthYear = monthYear;
+        this.spentAmount = spentAmount;
     }
 
     public Long getId() {
@@ -76,5 +87,13 @@ public class Budget {
 
     public void setMonthYear(String monthYear) {
         this.monthYear = monthYear;
+    }
+
+    public BigDecimal getSpentAmount() {
+        return spentAmount;
+    }
+
+    public void setSpentAmount(BigDecimal spentAmount) {
+        this.spentAmount = spentAmount;
     }
 }

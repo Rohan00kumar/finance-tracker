@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { User, Mail, Lock, CheckCircle, AlertCircle } from 'lucide-react';
 
-const Profile = () => {
+const Profile = ({ showToast }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -59,7 +59,9 @@ const Profile = () => {
       };
       
       const res = await api.put('/profile', payload);
-      setSuccess(res.data.message || 'Profile updated successfully!');
+      const msg = res.data.message || 'Profile updated successfully!';
+      setSuccess(msg);
+      if (showToast) showToast(msg, 'success');
       
       // Update local storage user name so the navbar displays the new name
       const storedUser = localStorage.getItem('user');
@@ -73,7 +75,9 @@ const Profile = () => {
       setConfirmPassword('');
     } catch (err) {
       console.error(err);
-      setError(err.response?.data?.message || 'Failed to update profile');
+      const errMsg = err.response?.data?.message || 'Failed to update profile';
+      setError(errMsg);
+      if (showToast) showToast(errMsg, 'error');
     } finally {
       setSaving(false);
     }

@@ -3,6 +3,7 @@ import api from '../services/api';
 import { 
   Plus, 
   Trash2, 
+  Edit2,
   X, 
   AlertTriangle, 
   Calendar, 
@@ -16,7 +17,7 @@ const CATEGORIES = [
   'Transportation', 'Entertainment', 'Shopping', 'Healthcare', 'Other'
 ];
 
-const Budgets = () => {
+const Budgets = ({ showToast }) => {
   const [budgets, setBudgets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -26,8 +27,12 @@ const Budgets = () => {
 
   // Modal / Form state
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [formMode, setFormMode] = useState('ADD'); // 'ADD' or 'EDIT'
+  const [editingId, setEditingId] = useState(null);
+  const [editingCategory, setEditingCategory] = useState('');
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [limitAmount, setLimitAmount] = useState('');
+  const [spentAmount, setSpentAmount] = useState('');
   const [formError, setFormError] = useState('');
   const [formLoading, setFormLoading] = useState(false);
 
@@ -48,9 +53,24 @@ const Budgets = () => {
     fetchBudgets();
   }, [selectedMonth]);
 
-  const openModal = () => {
+  const openAddModal = () => {
+    setFormMode('ADD');
+    setEditingId(null);
+    setEditingCategory('');
     setCategory(CATEGORIES[0]);
     setLimitAmount('');
+    setSpentAmount('0');
+    setFormError('');
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (budget) => {
+    setFormMode('EDIT');
+    setEditingId(budget.id);
+    setEditingCategory(budget.category);
+    setCategory(budget.category);
+    setLimitAmount(budget.limitAmount.toString());
+    setSpentAmount(budget.spentAmount.toString());
     setFormError('');
     setIsModalOpen(true);
   };
@@ -60,24 +80,55 @@ const Budgets = () => {
     setFormError('');
 
     if (!limitAmount || parseFloat(limitAmount) <= 0) {
-      setFormError('Please enter a valid limit amount');
+      setFormError('Please enter a valid limit amount greater than zero');
+      return;
+    }
+
+    if (spentAmount === '' || isNaN(parseFloat(spentAmount)) || parseFloat(spentAmount) < 0) {
+      setFormError('Please enter a valid spent amount (0 or positive)');
       return;
     }
 
     setFormLoading(true);
     try {
+      // If editing and category changed, delete old budget entry first
+      if (formMode === 'EDIT' && editingCategory && editingCategory !== category && editingId) {
+        try {
+          await api.delete(`/budgets/${editingId}`);
+        } catch (delErr) {
+          console.warn('Could not remove previous category budget:', delErr);
+        }
+      }
+
       const payload = {
         category,
         limitAmount: parseFloat(limitAmount),
+        spentAmount: parseFloat(spentAmount),
         monthYear: selectedMonth
       };
       
-      await api.post('/budgets', payload);
-      fetchBudgets();
+      const res = await api.post('/budgets', payload);
+      
+      // Update local state instantly with returned response
+      setBudgets(prev => {
+        const filtered = prev.filter(b => b.category.toLowerCase() !== category.toLowerCase());
+        return [...filtered, res.data];
+      });
+
+      await fetchBudgets();
       setIsModalOpen(false);
+
+      if (showToast) {
+        showToast(
+          formMode === 'ADD' 
+            ? `Budget for ${category} set successfully!` 
+            : `Budget details for ${category} updated successfully!`, 
+          'success'
+        );
+      }
     } catch (err) {
       console.error(err);
-      setFormError('Failed to save budget limit');
+      setFormError(err.response?.data?.message || 'Failed to save budget limit');
     } finally {
       setFormLoading(false);
     }
@@ -88,9 +139,16 @@ const Budgets = () => {
     try {
       await api.delete(`/budgets/${id}`);
       fetchBudgets();
+      if (showToast) {
+        showToast('Budget deleted successfully', 'info');
+      }
     } catch (err) {
       console.error(err);
-      alert('Failed to delete budget limit');
+      if (showToast) {
+        showToast('Failed to delete budget limit', 'error');
+      } else {
+        alert('Failed to delete budget limit');
+      }
     }
   };
 
@@ -109,7 +167,7 @@ const Budgets = () => {
       <header style={styles.header}>
         <div>
           <h1 style={styles.title}>Monthly Budgets</h1>
-          <p style={styles.subtitle}>Set targets and track expenses per category limits</p>
+          <p style={styles.subtitle}>Set targets, monitor spending, and easily adjust category limits</p>
         </div>
         
         <div style={styles.actions}>
@@ -123,7 +181,7 @@ const Budgets = () => {
             />
           </div>
           
-          <button className="btn btn-primary" onClick={openModal}>
+          <button className="btn btn-primary" onClick={openAddModal}>
             <Plus size={18} />
             Set Budget Limit
           </button>
@@ -137,8 +195,8 @@ const Budgets = () => {
         <div className="glass-card" style={styles.emptyCard}>
           <div style={styles.emptyIcon}>🎯</div>
           <h3>No Budgets Set</h3>
-          <p style={styles.emptyText}>You haven't set any category budgets for this month. Set one to start tracking your expenses!</p>
-          <button className="btn btn-primary" onClick={openModal} style={{ marginTop: '1rem' }}>
+          <p style={styles.emptyText}>You haven't set any category budgets for this month. Create one to start tracking your spending limits!</p>
+          <button className="btn btn-primary" onClick={openAddModal} style={{ marginTop: '1rem' }}>
             Create First Budget
           </button>
         </div>
@@ -146,16 +204,50 @@ const Budgets = () => {
         <div style={styles.grid}>
           {budgets.map(b => {
             const isOver = b.spentAmount > b.limitAmount;
-            const percent = Math.round((b.spentAmount / b.limitAmount) * 100);
+            const percent = Math.min(100, Math.round((b.spentAmount / b.limitAmount) * 100));
+            const rawPercent = Math.round((b.spentAmount / b.limitAmount) * 100);
             const remaining = b.limitAmount - b.spentAmount;
+            const isNearLimit = !isOver && percent >= 80;
+
+            let footerBg = 'rgba(16, 185, 129, 0.08)';
+            let footerBorder = 'rgba(16, 185, 129, 0.2)';
+            let footerColor = '#A7F3D0';
+            let barBg = 'var(--success-gradient)';
+
+            if (isOver) {
+              footerBg = 'rgba(239, 68, 68, 0.08)';
+              footerBorder = 'rgba(239, 68, 68, 0.2)';
+              footerColor = '#FCA5A5';
+              barBg = 'var(--danger-gradient)';
+            } else if (isNearLimit) {
+              footerBg = 'rgba(245, 158, 11, 0.08)';
+              footerBorder = 'rgba(245, 158, 11, 0.2)';
+              footerColor = '#FDE68A';
+              barBg = 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)';
+            }
 
             return (
               <div key={b.id} className="glass-card" style={styles.budgetCard}>
                 <div style={styles.cardHeader}>
                   <h3 style={styles.cardTitle}>{b.category}</h3>
-                  <button className="btn-icon" onClick={() => handleDelete(b.id)} style={{ color: 'var(--danger)', padding: 4 }}>
-                    <Trash2 size={16} />
-                  </button>
+                  <div style={styles.cardHeaderActions}>
+                    <button 
+                      className="btn-icon" 
+                      onClick={() => openEditModal(b)} 
+                      title="Edit Budget Details"
+                      style={{ padding: 6, color: '#A5B4FC' }}
+                    >
+                      <Edit2 size={16} />
+                    </button>
+                    <button 
+                      className="btn-icon" 
+                      onClick={() => handleDelete(b.id)} 
+                      title="Delete Budget"
+                      style={{ color: 'var(--danger)', padding: 6 }}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
 
                 <div style={styles.metricsContainer}>
@@ -167,7 +259,7 @@ const Budgets = () => {
                   </div>
                   <div style={styles.metricDivider}></div>
                   <div style={styles.metric}>
-                    <span style={styles.metricLabel}>Limit</span>
+                    <span style={styles.metricLabel}>Budget Limit</span>
                     <span style={styles.metricValue}>₹{b.limitAmount.toFixed(2)}</span>
                   </div>
                 </div>
@@ -177,28 +269,33 @@ const Budgets = () => {
                   <div style={styles.progressBarBg}>
                     <div style={{ 
                       ...styles.progressBarFill, 
-                      width: `${Math.min(percent, 100)}%`,
-                      background: isOver ? 'var(--danger-gradient)' : 'var(--primary-gradient)'
+                      width: `${percent}%`,
+                      background: barBg
                     }}></div>
                   </div>
-                  <div style={styles.progressPercent}>{percent}% used</div>
+                  <div style={styles.progressPercent}>{rawPercent}% used</div>
                 </div>
 
                 {/* Status footer */}
                 <div style={{
                   ...styles.cardFooter,
-                  background: isOver ? 'rgba(239, 68, 68, 0.05)' : 'rgba(16, 185, 129, 0.05)',
-                  borderColor: isOver ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
-                  color: isOver ? '#FCA5A5' : '#A7F3D0'
+                  background: footerBg,
+                  borderColor: footerBorder,
+                  color: footerColor
                 }}>
                   {isOver ? (
                     <>
-                      <AlertTriangle size={15} />
-                      <span>Over budget by ₹{Math.abs(remaining).toFixed(2)}!</span>
+                      <AlertTriangle size={16} />
+                      <span>Exceeded by ₹{Math.abs(remaining).toFixed(2)}!</span>
+                    </>
+                  ) : isNearLimit ? (
+                    <>
+                      <AlertTriangle size={16} />
+                      <span>Warning: Only ₹{remaining.toFixed(2)} left</span>
                     </>
                   ) : (
                     <>
-                      <CheckCircle size={15} />
+                      <CheckCircle size={16} />
                       <span>₹{remaining.toFixed(2)} remaining</span>
                     </>
                   )}
@@ -214,7 +311,7 @@ const Budgets = () => {
         <div className="modal-overlay">
           <div className="modal-content">
             <div style={styles.modalHeader}>
-              <h3>Configure Budget</h3>
+              <h3>{formMode === 'ADD' ? 'Set Category Budget' : 'Edit Budget Details'}</h3>
               <button className="btn-icon" onClick={() => setIsModalOpen(false)}>
                 <X size={20} />
               </button>
@@ -236,19 +333,37 @@ const Budgets = () => {
                 </select>
               </div>
 
-              <div className="form-group" style={{ marginBottom: '1.75rem' }}>
-                <label className="form-label">Monthly Limit Amount (₹)</label>
-                <div style={styles.inputPrefixContainer}>
-                  <span style={{ position: 'absolute', left: '1rem', color: 'var(--text-muted)' }}>₹</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    className="form-input"
-                    style={styles.inputWithPrefix}
-                    placeholder="e.g. 500.00"
-                    value={limitAmount}
-                    onChange={(e) => setLimitAmount(e.target.value)}
-                  />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.75rem' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Budget Limit Amount (₹)</label>
+                  <div style={styles.inputPrefixContainer}>
+                    <span style={styles.prefixSymbol}>₹</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="form-input"
+                      style={styles.inputWithPrefix}
+                      placeholder="e.g. 5000.00"
+                      value={limitAmount}
+                      onChange={(e) => setLimitAmount(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Spent Amount (₹)</label>
+                  <div style={styles.inputPrefixContainer}>
+                    <span style={styles.prefixSymbol}>₹</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="form-input"
+                      style={styles.inputWithPrefix}
+                      placeholder="e.g. 1200.00"
+                      value={spentAmount}
+                      onChange={(e) => setSpentAmount(e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -262,7 +377,7 @@ const Budgets = () => {
                   Cancel
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={formLoading}>
-                  {formLoading ? 'Saving...' : 'Set Budget Limit'}
+                  {formLoading ? 'Saving...' : formMode === 'ADD' ? 'Set Budget Limit' : 'Save Changes'}
                 </button>
               </div>
             </form>
@@ -275,7 +390,7 @@ const Budgets = () => {
 
 const styles = {
   container: {
-    padding: '2rem',
+    padding: '1.5rem 2rem',
     maxWidth: '1200px',
     margin: '0 auto',
   },
@@ -303,12 +418,13 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     gap: '1rem',
+    flexWrap: 'wrap',
   },
   filterContainer: {
     display: 'flex',
     alignItems: 'center',
     gap: '0.5rem',
-    background: 'rgba(255, 255, 255, 0.03)',
+    background: 'rgba(255, 255, 255, 0.05)',
     border: '1px solid var(--border-color)',
     borderRadius: '12px',
     padding: '0.5rem 1rem',
@@ -316,15 +432,16 @@ const styles = {
   monthInput: {
     border: 'none',
     background: 'transparent',
-    color: 'var(--text-primary)',
+    color: '#fff',
     fontFamily: 'var(--font-sans)',
     fontSize: '0.9rem',
     outline: 'none',
     cursor: 'pointer',
+    colorScheme: 'dark',
   },
   grid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))',
     gap: '1.5rem',
   },
   budgetCard: {
@@ -340,10 +457,16 @@ const styles = {
     alignItems: 'center',
     marginBottom: '1rem',
   },
+  cardHeaderActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.25rem',
+  },
   cardTitle: {
     fontSize: '1.1rem',
     fontWeight: 700,
     textTransform: 'capitalize',
+    color: '#fff',
   },
   metricsContainer: {
     display: 'flex',
@@ -360,6 +483,7 @@ const styles = {
     color: 'var(--text-muted)',
     textTransform: 'uppercase',
     marginBottom: '0.25rem',
+    fontWeight: 600,
   },
   metricValue: {
     fontSize: '1.25rem',
@@ -376,32 +500,32 @@ const styles = {
     marginBottom: '1rem',
   },
   progressBarBg: {
-    height: '6px',
+    height: '8px',
     width: '100%',
-    background: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: '3px',
+    background: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: '4px',
     overflow: 'hidden',
     marginBottom: '0.35rem',
   },
   progressBarFill: {
     height: '100%',
-    borderRadius: '3px',
+    borderRadius: '4px',
     transition: 'width 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
   },
   progressPercent: {
     fontSize: '0.75rem',
     textAlign: 'right',
     color: 'var(--text-secondary)',
-    fontWeight: 500,
+    fontWeight: 600,
   },
   cardFooter: {
     display: 'flex',
     alignItems: 'center',
     gap: '0.5rem',
-    padding: '0.625rem 0.75rem',
+    padding: '0.625rem 0.875rem',
     borderRadius: '8px',
     border: '1px solid',
-    fontSize: '0.8rem',
+    fontSize: '0.825rem',
     fontWeight: 600,
   },
   emptyCard: {
@@ -436,10 +560,11 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
   },
-  inputPrefixIcon: {
+  prefixSymbol: {
     position: 'absolute',
     left: '1rem',
     color: 'var(--text-muted)',
+    fontWeight: 600,
   },
   inputWithPrefix: {
     paddingLeft: '2.5rem',

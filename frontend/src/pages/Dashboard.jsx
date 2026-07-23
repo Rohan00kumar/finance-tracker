@@ -6,7 +6,8 @@ import {
   Wallet, 
   AlertTriangle,
   ArrowRightLeft,
-  Calendar
+  Calendar,
+  Target
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -24,9 +25,10 @@ import {
 
 const COLORS = ['#6366F1', '#10B981', '#F59E0B', '#EF4444', '#EC4899', '#8B5CF6', '#3B82F6', '#14B8A6'];
 
-const Dashboard = () => {
+const Dashboard = ({ showToast, setActivePage }) => {
   const [transactions, setTransactions] = useState([]);
   const [budgets, setBudgets] = useState([]);
+  const [savingsGoals, setSavingsGoals] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState(
     new Date().toISOString().substring(0, 7) // YYYY-MM
   );
@@ -37,12 +39,14 @@ const Dashboard = () => {
     setLoading(true);
     setError('');
     try {
-      const [txRes, budgetRes] = await Promise.all([
+      const [txRes, budgetRes, savingsRes] = await Promise.all([
         api.get('/transactions'),
-        api.get(`/budgets?monthYear=${selectedMonth}`)
+        api.get(`/budgets?monthYear=${selectedMonth}`),
+        api.get('/savings')
       ]);
       setTransactions(txRes.data);
       setBudgets(budgetRes.data);
+      setSavingsGoals(savingsRes.data);
     } catch (err) {
       console.error(err);
       setError('Failed to fetch dashboard data. Please try again.');
@@ -68,6 +72,8 @@ const Dashboard = () => {
     .reduce((sum, t) => sum + t.amount, 0);
 
   const netBalance = totalIncome - totalExpense;
+
+  const totalSavings = savingsGoals.reduce((sum, g) => sum + (g.currentAmount || 0), 0);
 
   // Chart 1: Income vs Expense
   const barChartData = [
@@ -107,7 +113,7 @@ const Dashboard = () => {
       <header style={styles.header}>
         <div>
           <h1 style={styles.title}>Financial Dashboard</h1>
-          <p style={styles.subtitle}>Real-time overview of your incomes, expenses, and budgets</p>
+          <p style={styles.subtitle}>Real-time overview of your incomes, expenses, budgets & savings</p>
         </div>
         
         <div style={styles.filterContainer}>
@@ -125,7 +131,11 @@ const Dashboard = () => {
 
       {/* KPI Cards */}
       <section style={styles.kpiGrid}>
-        <div className="glass-card" style={styles.kpiCard}>
+        <div 
+          className="glass-card" 
+          style={{ ...styles.kpiCard, cursor: setActivePage ? 'pointer' : 'default' }}
+          onClick={() => setActivePage && setActivePage('transactions')}
+        >
           <div style={styles.kpiHeader}>
             <span style={styles.kpiLabel}>Current Balance</span>
             <div style={{ ...styles.kpiIcon, background: 'rgba(99, 102, 241, 0.15)', color: 'var(--primary)' }}>
@@ -138,7 +148,11 @@ const Dashboard = () => {
           <span style={styles.kpiFootnote}>Income minus Expenses</span>
         </div>
 
-        <div className="glass-card" style={styles.kpiCard}>
+        <div 
+          className="glass-card" 
+          style={{ ...styles.kpiCard, cursor: setActivePage ? 'pointer' : 'default' }}
+          onClick={() => setActivePage && setActivePage('transactions')}
+        >
           <div style={styles.kpiHeader}>
             <span style={styles.kpiLabel}>Total Income</span>
             <div style={{ ...styles.kpiIcon, background: 'rgba(16, 185, 129, 0.15)', color: 'var(--success)' }}>
@@ -151,7 +165,11 @@ const Dashboard = () => {
           <span style={styles.kpiFootnote}>Total earnings in period</span>
         </div>
 
-        <div className="glass-card" style={styles.kpiCard}>
+        <div 
+          className="glass-card" 
+          style={{ ...styles.kpiCard, cursor: setActivePage ? 'pointer' : 'default' }}
+          onClick={() => setActivePage && setActivePage('transactions')}
+        >
           <div style={styles.kpiHeader}>
             <span style={styles.kpiLabel}>Total Expenses</span>
             <div style={{ ...styles.kpiIcon, background: 'rgba(239, 68, 68, 0.15)', color: 'var(--danger)' }}>
@@ -162,6 +180,23 @@ const Dashboard = () => {
             -₹{totalExpense.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </h2>
           <span style={styles.kpiFootnote}>Total spending in period</span>
+        </div>
+
+        <div 
+          className="glass-card" 
+          style={{ ...styles.kpiCard, cursor: setActivePage ? 'pointer' : 'default' }}
+          onClick={() => setActivePage && setActivePage('savings')}
+        >
+          <div style={styles.kpiHeader}>
+            <span style={styles.kpiLabel}>Total Savings</span>
+            <div style={{ ...styles.kpiIcon, background: 'rgba(139, 92, 246, 0.15)', color: '#A78BFA' }}>
+              <Target size={20} />
+            </div>
+          </div>
+          <h2 style={{ ...styles.kpiValue, color: '#C7D2FE' }}>
+            ₹{totalSavings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </h2>
+          <span style={styles.kpiFootnote}>Saved across {savingsGoals.length} active goals</span>
         </div>
       </section>
 
@@ -304,7 +339,7 @@ const Dashboard = () => {
 
 const styles = {
   container: {
-    padding: '2rem',
+    padding: '1.5rem 2rem',
     maxWidth: '1200px',
     margin: '0 auto',
   },
@@ -332,7 +367,7 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     gap: '0.5rem',
-    background: 'rgba(255, 255, 255, 0.03)',
+    background: 'rgba(255, 255, 255, 0.05)',
     border: '1px solid var(--border-color)',
     borderRadius: '12px',
     padding: '0.5rem 1rem',
@@ -340,11 +375,12 @@ const styles = {
   monthInput: {
     border: 'none',
     background: 'transparent',
-    color: 'var(--text-primary)',
+    color: '#fff',
     fontFamily: 'var(--font-sans)',
     fontSize: '0.9rem',
     outline: 'none',
     cursor: 'pointer',
+    colorScheme: 'dark',
   },
   error: {
     background: 'rgba(239, 68, 68, 0.1)',
@@ -356,7 +392,7 @@ const styles = {
   },
   kpiGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
     gap: '1.5rem',
     marginBottom: '2rem',
   },
@@ -396,12 +432,12 @@ const styles = {
   },
   chartsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
     gap: '1.5rem',
     marginBottom: '2rem',
   },
   chartCard: {
-    minHeight: '380px',
+    minHeight: '350px',
     display: 'flex',
     flexDirection: 'column',
   },
@@ -425,7 +461,7 @@ const styles = {
   },
   alertsAndLogGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
     gap: '1.5rem',
   },
   alertCard: {

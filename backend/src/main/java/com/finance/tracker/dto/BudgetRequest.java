@@ -14,6 +14,8 @@ public class BudgetRequest {
     @NotBlank
     private String monthYear; // Format: YYYY-MM
 
+    private BigDecimal spentAmount;
+
     public String getCategory() {
         return category;
     }
@@ -36,5 +38,13 @@ public class BudgetRequest {
 
     public void setMonthYear(String monthYear) {
         this.monthYear = monthYear;
+    }
+
+    public BigDecimal getSpentAmount() {
+        return spentAmount;
+    }
+
+    public void setSpentAmount(BigDecimal spentAmount) {
+        this.spentAmount = spentAmount;
     }
 }

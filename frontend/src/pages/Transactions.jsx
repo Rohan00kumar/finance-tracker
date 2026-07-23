@@ -18,7 +18,7 @@ const CATEGORIES = [
   'Transportation', 'Entertainment', 'Shopping', 'Healthcare', 'Other'
 ];
 
-const Transactions = () => {
+const Transactions = ({ showToast }) => {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -109,8 +109,10 @@ const Transactions = () => {
     try {
       if (formMode === 'ADD') {
         await api.post('/transactions', payload);
+        if (showToast) showToast('Transaction logged successfully!', 'success');
       } else {
         await api.put(`/transactions/${editingId}`, payload);
+        if (showToast) showToast('Transaction updated successfully!', 'success');
       }
       fetchTransactions();
       setIsModalOpen(false);
@@ -125,9 +127,10 @@ const Transactions = () => {
     try {
       await api.delete(`/transactions/${id}`);
       fetchTransactions();
+      if (showToast) showToast('Transaction deleted successfully', 'info');
     } catch (err) {
       console.error(err);
-      alert('Failed to delete transaction');
+      if (showToast) showToast('Failed to delete transaction', 'error');
     }
   };
 
@@ -144,9 +147,10 @@ const Transactions = () => {
       link.href = window.URL.createObjectURL(blob);
       link.download = `finance_report_${exportStart}_to_${exportEnd}.${format}`;
       link.click();
+      if (showToast) showToast(`Finance report exported as ${format.toUpperCase()}!`, 'success');
     } catch (err) {
       console.error(err);
-      alert('Failed to download report');
+      if (showToast) showToast('Failed to download report', 'error');
     }
   };
 
@@ -416,7 +420,7 @@ const Transactions = () => {
 
 const styles = {
   container: {
-    padding: '2rem',
+    padding: '1.5rem 2rem',
     maxWidth: '1200px',
     margin: '0 auto',
   },
@@ -425,6 +429,8 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: '2rem',
+    flexWrap: 'wrap',
+    gap: '1rem',
   },
   title: {
     fontSize: '2rem',
@@ -451,31 +457,36 @@ const styles = {
     display: 'flex',
     flexWrap: 'wrap',
     alignItems: 'flex-end',
-    gap: '1.5rem',
+    gap: '1.25rem',
   },
   exportFormGroup: {
     display: 'flex',
     flexDirection: 'column',
     gap: '0.35rem',
+    flex: '1 1 180px',
   },
   exportLabel: {
     fontSize: '0.75rem',
     color: 'var(--text-secondary)',
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
+    fontWeight: 600,
   },
   exportInput: {
-    background: 'rgba(0, 0, 0, 0.2)',
+    background: 'rgba(17, 24, 39, 0.8)',
     border: '1px solid var(--border-color)',
     borderRadius: '8px',
     padding: '0.5rem 0.75rem',
     color: '#fff',
     outline: 'none',
     fontFamily: 'var(--font-sans)',
+    colorScheme: 'dark',
+    width: '100%',
   },
   exportButtons: {
     display: 'flex',
     gap: '0.75rem',
+    flexWrap: 'wrap',
   },
   exportBtn: {
     padding: '0.5rem 1rem',
@@ -492,8 +503,8 @@ const styles = {
   },
   searchBox: {
     position: 'relative',
-    flex: 1,
-    minWidth: '280px',
+    flex: '1 1 280px',
+    minWidth: '240px',
   },
   searchIcon: {
     position: 'absolute',
@@ -514,7 +525,7 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     gap: '0.5rem',
-    background: 'rgba(0,0,0,0.2)',
+    background: 'rgba(17, 24, 39, 0.8)',
     border: '1px solid var(--border-color)',
     borderRadius: '12px',
     padding: '0.25rem 0.75rem',
@@ -522,12 +533,13 @@ const styles = {
   select: {
     background: 'transparent',
     border: 'none',
-    color: 'var(--text-primary)',
+    color: '#fff',
     fontFamily: 'var(--font-sans)',
     outline: 'none',
     padding: '0.5rem 0',
     cursor: 'pointer',
     fontWeight: 500,
+    colorScheme: 'dark',
   },
   tableCard: {
     padding: 0,
@@ -537,10 +549,11 @@ const styles = {
     width: '100%',
     borderCollapse: 'collapse',
     textAlign: 'left',
+    minWidth: '600px',
   },
   th: {
     padding: '1rem 1.5rem',
-    background: 'rgba(255, 255, 255, 0.02)',
+    background: 'rgba(255, 255, 255, 0.03)',
     borderBottom: '1px solid var(--border-color)',
     color: 'var(--text-secondary)',
     fontSize: '0.8rem',
@@ -558,12 +571,12 @@ const styles = {
     color: 'var(--text-primary)',
   },
   categoryBadge: {
-    background: 'rgba(255, 255, 255, 0.05)',
-    border: '1px solid rgba(255, 255, 255, 0.05)',
+    background: 'rgba(255, 255, 255, 0.06)',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
     padding: '0.25rem 0.5rem',
     borderRadius: '6px',
     fontSize: '0.8rem',
-    color: 'var(--text-secondary)',
+    color: '#E0E7FF',
   },
   typeBadge: {
     padding: '0.25rem 0.5rem',
@@ -594,7 +607,7 @@ const styles = {
   },
   formGrid: {
     display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
     gap: '1rem',
   },
   modalFooter: {

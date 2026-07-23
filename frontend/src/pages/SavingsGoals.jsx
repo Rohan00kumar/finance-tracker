@@ -12,7 +12,7 @@ import {
   Edit2
 } from 'lucide-react';
 
-const SavingsGoals = () => {
+const SavingsGoals = ({ showToast }) => {
   const [goals, setGoals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -93,8 +93,10 @@ const SavingsGoals = () => {
       
       if (formMode === 'ADD') {
         await api.post('/savings', payload);
+        if (showToast) showToast('Savings goal created successfully!', 'success');
       } else {
         await api.put(`/savings/${editingId}`, payload);
+        if (showToast) showToast('Savings goal updated successfully!', 'success');
       }
       fetchGoals();
       setIsModalOpen(false);
@@ -111,9 +113,10 @@ const SavingsGoals = () => {
     try {
       await api.delete(`/savings/${id}`);
       fetchGoals();
+      if (showToast) showToast('Savings goal deleted successfully', 'info');
     } catch (err) {
       console.error(err);
-      alert('Failed to delete savings goal');
+      if (showToast) showToast('Failed to delete savings goal', 'error');
     }
   };
 
@@ -322,7 +325,7 @@ const SavingsGoals = () => {
 
 const styles = {
   container: {
-    padding: '2rem',
+    padding: '1.5rem 2rem',
     maxWidth: '1200px',
     margin: '0 auto',
   },
@@ -348,7 +351,7 @@ const styles = {
   },
   grid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
     gap: '1.5rem',
   },
   goalCard: {
@@ -367,6 +370,7 @@ const styles = {
   cardTitle: {
     fontSize: '1.1rem',
     fontWeight: 700,
+    color: '#fff',
   },
   actions: {
     display: 'flex',
@@ -387,6 +391,7 @@ const styles = {
     color: 'var(--text-muted)',
     textTransform: 'uppercase',
     marginBottom: '0.25rem',
+    fontWeight: 600,
   },
   metricValue: {
     fontSize: '1.25rem',
@@ -403,16 +408,16 @@ const styles = {
     marginBottom: '1rem',
   },
   progressBarBg: {
-    height: '6px',
+    height: '8px',
     width: '100%',
-    background: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: '3px',
+    background: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: '4px',
     overflow: 'hidden',
     marginBottom: '0.5rem',
   },
   progressBarFill: {
     height: '100%',
-    borderRadius: '3px',
+    borderRadius: '4px',
     transition: 'width 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
   },
   progressText: {
@@ -461,7 +466,7 @@ const styles = {
   },
   formGrid: {
     display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
     gap: '1rem',
   },
   inputPrefixContainer: {

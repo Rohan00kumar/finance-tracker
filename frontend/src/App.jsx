@@ -6,10 +6,20 @@ import Transactions from './pages/Transactions';
 import Budgets from './pages/Budgets';
 import SavingsGoals from './pages/SavingsGoals';
 import Profile from './pages/Profile';
+import Toast from './components/Toast';
 
 const MainAppContent = () => {
   const { user, loading } = useAuth();
   const [activePage, setActivePage] = useState('dashboard');
+  const [toast, setToast] = useState({ message: '', type: 'success' });
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+  };
+
+  const closeToast = () => {
+    setToast({ message: '', type: 'success' });
+  };
 
   if (loading) {
     return (
@@ -23,14 +33,15 @@ const MainAppContent = () => {
   // Dashboard / Operations Routing
   return (
     <div style={styles.appContainer}>
+      <Toast message={toast.message} type={toast.type} onClose={closeToast} />
       <Navbar activePage={activePage} setActivePage={setActivePage} />
       
       <main style={styles.mainContent}>
-        {activePage === 'dashboard' && <Dashboard />}
-        {activePage === 'transactions' && <Transactions />}
-        {activePage === 'budgets' && <Budgets />}
-        {activePage === 'savings' && <SavingsGoals />}
-        {activePage === 'profile' && <Profile />}
+        {activePage === 'dashboard' && <Dashboard showToast={showToast} setActivePage={setActivePage} />}
+        {activePage === 'transactions' && <Transactions showToast={showToast} />}
+        {activePage === 'budgets' && <Budgets showToast={showToast} />}
+        {activePage === 'savings' && <SavingsGoals showToast={showToast} />}
+        {activePage === 'profile' && <Profile showToast={showToast} />}
       </main>
     </div>
   );

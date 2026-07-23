@@ -49,7 +49,9 @@ public class BudgetServiceImpl implements BudgetService {
 
         return budgets.stream()
                 .map(b -> {
-                    BigDecimal spent = spentMap.getOrDefault(b.getCategory().toLowerCase(), BigDecimal.ZERO);
+                    BigDecimal spent = b.getSpentAmount() != null 
+                            ? b.getSpentAmount() 
+                            : spentMap.getOrDefault(b.getCategory().toLowerCase(), BigDecimal.ZERO);
                     return new BudgetResponse(
                             b.getId(),
                             b.getCategory(),
@@ -71,6 +73,9 @@ public class BudgetServiceImpl implements BudgetService {
         if (existing.isPresent()) {
             budget = existing.get();
             budget.setLimitAmount(request.getLimitAmount());
+            if (request.getSpentAmount() != null) {
+                budget.setSpentAmount(request.getSpentAmount());
+            }
         } else {
             budget = new Budget(
                     user,
@@ -78,16 +83,21 @@ public class BudgetServiceImpl implements BudgetService {
                     request.getLimitAmount(),
                     request.getMonthYear()
             );
+            if (request.getSpentAmount() != null) {
+                budget.setSpentAmount(request.getSpentAmount());
+            }
         }
 
         Budget saved = budgetRepository.save(budget);
 
         YearMonth ym = YearMonth.parse(request.getMonthYear());
         List<Expense> expenses = expenseRepository.findByUserAndDateBetweenOrderByDateDesc(user, ym.atDay(1), ym.atEndOfMonth());
-        BigDecimal spent = expenses.stream()
-                .filter(e -> e.getCategory().equalsIgnoreCase(request.getCategory()))
-                .map(Expense::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal spent = saved.getSpentAmount() != null 
+                ? saved.getSpentAmount() 
+                : expenses.stream()
+                        .filter(e -> e.getCategory().equalsIgnoreCase(request.getCategory()))
+                        .map(Expense::getAmount)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         return new BudgetResponse(
                 saved.getId(),
